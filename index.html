@@ -266,19 +266,17 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   <div class="proforma-header-row">
     <div style="font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:1px">Información del Cliente</div>
     <div class="doc-no">
-      <span class="badge">Fact. No.</span>
-      <input id="docNo" value="888" style="width:58px">
-      <span class="badge">Orden</span>
-      <input id="docOrden" value="7733" style="width:66px">
+      <span class="badge">Orden N°</span>
+      <input id="docOrden" readonly style="width:90px;background:#f1f5f9;font-weight:700;text-align:center;cursor:default">
     </div>
   </div>
   <div class="form-grid-2">
-    <div class="form-group"><label>Empresa</label><input id="fEmpresa" value="DICONS"></div>
+    <div class="form-group"><label>Empresa</label><input id="fEmpresa" placeholder="Nombre de la empresa"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="fFecha"></div>
-    <div class="form-group"><label>Cliente</label><input id="fCliente" value="MARIANA FABIANA VELIZ"></div>
-    <div class="form-group"><label>Teléfono</label><input id="fTelefono" value="959506345"></div>
-    <div class="form-group"><label>Dirección</label><input id="fDireccion" value="VINCES"></div>
-    <div class="form-group"><label>CI / RUC</label><input id="fCedula" value="1205818782"></div>
+    <div class="form-group"><label>Cliente</label><input id="fCliente" placeholder=""></div>
+    <div class="form-group"><label>Teléfono</label><input id="fTelefono" placeholder=""></div>
+    <div class="form-group"><label>Dirección</label><input id="fDireccion" placeholder=""></div>
+    <div class="form-group"><label>CI / RUC</label><input id="fCedula" placeholder=""></div>
     <div class="form-group"><label>Email</label><input id="fMail" placeholder="correo@ejemplo.com"></div>
     <div class="form-group"><label>Atendido por</label><input id="fAtencion" value="Ricardo M."></div>
   </div>
@@ -640,6 +638,10 @@ function guardarCotizacion(){
   if(hist.length>10) hist=hist.slice(0,10);
   saveHistory(hist);
   showHistSaveBadge();
+
+  // Fijar número de orden usado y preparar el siguiente
+  const nActual = parseInt(document.getElementById('docOrden')?.getAttribute('data-num')||getNextOrden(),10);
+  confirmarOrden(nActual);
 }
 
 function showHistSaveBadge(){
@@ -916,12 +918,32 @@ document.getElementById('saveBtn').onclick=()=>guardarCotizacion();
 document.getElementById('clearBtn').onclick=()=>{
   if(!confirm('¿Limpiar todos los datos del formulario?'))return;
   document.getElementById('itemsBody').innerHTML='';
-  ['fCliente','fMail','fTelefono','fDireccion','fCedula','fAtencion'].forEach(id=>document.getElementById(id).value='');
+  ['fEmpresa','fCliente','fMail','fTelefono','fDireccion','fCedula','fAtencion','fNotas'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  setOrdenActual(getNextOrden());
   document.getElementById('fFecha').value=new Date().toISOString().slice(0,10);
   calcTotals();
   clearSig(1);clearSig(2);
   document.querySelectorAll('.img-slot').forEach(s=>s.remove());
 };
+
+// ===== NUMERACIÓN AUTOMÁTICA DE ORDEN (RICCHARY) =====
+function getNextOrden(){
+  // Lee el último número usado; arranca en 1001
+  let last = parseInt(localStorage.getItem('ricchary_last_orden')||'1000', 10);
+  return last + 1;
+}
+function setOrdenActual(n){
+  const el = document.getElementById('docOrden');
+  if(el) el.value = String(n).padStart(4,'0');
+  document.getElementById('docOrden')?.setAttribute('data-num', n);
+}
+function confirmarOrden(n){
+  // Fija el número como usado (se llama al guardar)
+  localStorage.setItem('ricchary_last_orden', String(n));
+}
+// Al cargar la app, mostrar el próximo número disponible
+window.addEventListener('load', ()=>{ setOrdenActual(getNextOrden()); });
+
 </script>
 <script>
 if('serviceWorker' in navigator){
