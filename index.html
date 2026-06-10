@@ -194,6 +194,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 /* ===== RESPONSIVE MÓVIL (RICCHARY) ===== */
 @media (max-width:680px){
   #app{padding:0.6rem}
+  /* Barra de acciones: permitir que los botones bajen de línea y se vean completos */
+  .action-bar{flex-wrap:wrap;justify-content:center;gap:6px}
+  .action-bar button{flex:1 1 auto;min-width:128px;justify-content:center;padding:11px 10px;font-size:13px}
+  .add-img-slot,.add-row-btn{white-space:normal}
   /* Barra superior se apila */
   .topbar{flex-direction:column;align-items:flex-start;gap:10px;padding:0.8rem 1rem}
   .topbar-right{flex-wrap:wrap;width:100%}
