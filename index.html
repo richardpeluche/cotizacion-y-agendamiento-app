@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="RICCHARY">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{max-width:100%;overflow-x:hidden}
 :root{
   --brand:#1565C0;--brand-dark:#0D47A1;--brand-light:#E3F2FD;--brand-mid:#1976D2;
   --accent:#FFC107;--text:#1a1a2e;--muted:#546E7A;--border:#B0BEC5;
@@ -189,6 +190,34 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-hist-agenda{background:#22c55e;color:#fff;border-color:#22c55e}
 .btn-hist-del{background:#fff;color:var(--danger);border-color:var(--danger)}
 .hist-save-badge{position:absolute;top:-8px;right:-8px;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:2px 8px;display:none}
+
+/* ===== RESPONSIVE MÓVIL (RICCHARY) ===== */
+@media (max-width:680px){
+  #app{padding:0.6rem}
+  /* Barra superior se apila */
+  .topbar{flex-direction:column;align-items:flex-start;gap:10px;padding:0.8rem 1rem}
+  .topbar-right{flex-wrap:wrap;width:100%}
+  #companyNameInput{width:100%;max-width:100%}
+  #companyNameDisplay{font-size:18px;word-break:break-word}
+  /* Tablas: ancho fluido, scroll propio si hace falta */
+  table,.items-table{min-width:0;width:100%;table-layout:auto;font-size:12px}
+  .items-table th,.items-table td{padding:5px 4px}
+  .items-table th{font-size:9px}
+  .items-table input{font-size:12px}
+  /* Quitar anchos fijos de columnas en móvil */
+  .items-table th,.items-table td{width:auto!important}
+  /* Cualquier caja con ancho fijo se vuelve fluida */
+  .modal-box{max-width:95%;padding:20px 18px}
+  /* Inputs cómodos para el dedo y sin zoom en iOS */
+  input,select,textarea{font-size:16px}
+  /* Firmas y bloques que tenían ancho fijo */
+  [style*="width:440px"],[style*="width:460px"],[style*="width:340px"]{max-width:100%}
+}
+@media (max-width:420px){
+  #companyNameDisplay{font-size:16px}
+  .items-table th{font-size:8px;padding:4px 2px}
+  .items-table td{padding:4px 2px}
+}
 </style>
 
 </head><body><input type="file" id="logoInput" class="img-input" accept="image/*">
