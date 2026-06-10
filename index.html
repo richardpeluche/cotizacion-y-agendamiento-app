@@ -189,6 +189,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-hist-load{background:var(--brand);color:#fff;border-color:var(--brand)}
 .btn-hist-agenda{background:#22c55e;color:#fff;border-color:#22c55e}
 .btn-hist-del{background:#fff;color:var(--danger);border-color:var(--danger)}
+.badge-nube{display:inline-block;background:#64748b;color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
 .badge-agendado{display:inline-block;background:#22c55e;color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
 .hist-save-badge{position:absolute;top:-8px;right:-8px;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:2px 8px;display:none}
 
@@ -629,7 +630,7 @@ function captureCotizacion(){
   return {
     id: Date.now(),
     savedAt: new Date().toLocaleString('es-EC'),
-    num: document.getElementById('docNo')?.value||'',
+    num: document.getElementById('docOrden')?.value||'',
     fecha: document.getElementById('fFecha')?.value||'',
     cliente: document.getElementById('fCliente')?.value||'',
     telefono: document.getElementById('fTelefono')?.value||'',
@@ -654,7 +655,7 @@ function guardarCotizacion(){
   }
   let hist = getHistory();
   // Evitar duplicado por id igual (edición)
-  hist = hist.filter(c=>c.id!==cot.id);
+  hist = hist.filter(c=>c.id!==cot.id && String(c.num)!==String(cot.num));
   hist.unshift(cot);
   if(hist.length>10) hist=hist.slice(0,10);
   saveHistory(hist);
@@ -673,15 +674,16 @@ function showHistSaveBadge(){
 
 // Carga una cotización del historial al formulario
 function cargarCotizacion(cot){
-  document.getElementById('docNo').value = cot.num||'';
+  const _dO=document.getElementById('docOrden'); if(_dO) _dO.value = cot.num||'';
   document.getElementById('fFecha').value = cot.fecha||'';
   document.getElementById('fCliente').value = cot.cliente||'';
+  const _fE=document.getElementById('fEmpresa'); if(_fE && cot.empresa!==undefined) _fE.value = cot.empresa||'';
   document.getElementById('fTelefono').value = cot.telefono||'';
   document.getElementById('fDireccion').value = cot.direccion||'';
   document.getElementById('fCedula').value = cot.cedula||'';
   document.getElementById('fMail').value = cot.mail||'';
   document.getElementById('fAtencion').value = cot.atencion||'';
-  document.getElementById('fNotas').value = cot.notas||'';
+  if(cot.notas!==undefined && !cot._cloud) document.getElementById('fNotas').value = cot.notas||'';
   document.getElementById('ivaSel').value = cot.iva||'0';
   // Limpiar e insertar ítems
   document.getElementById('itemsBody').innerHTML='';
@@ -726,7 +728,11 @@ function agendarDesdeCot(cot){
 
 // Renderiza el listado del historial
 function renderHistorial(){
-  const hist=getHistory();
+  const local=getHistory();
+  // Fusionar: locales primero; de la nube solo las que no estén en local (por nº de orden)
+  const nums = new Set(local.map(c=>String(c.num)));
+  const nube = CLOUD_HIST.filter(c=>!nums.has(String(c.num)));
+  const hist = local.concat(nube);
   const container=document.getElementById('histList');
   if(hist.length===0){
     container.innerHTML='<div class="hist-empty">📭 Aún no hay cotizaciones guardadas.<br><small>Haz clic en <b>💾 Guardar</b> para registrar la cotización actual.</small></div>';
@@ -735,7 +741,7 @@ function renderHistorial(){
   container.innerHTML=hist.map((cot,idx)=>`
     <div class="hist-card">
       <div class="hist-card-header">
-        <span class="hist-card-num">Proforma #${cot.num||'—'} ${yaAgendado(cot.num)?'<span class="badge-agendado">✅ Agendado</span>':''}</span>
+        <span class="hist-card-num">Proforma #${cot.num||'—'} ${yaAgendado(cot.num)?'<span class="badge-agendado">✅ Agendado</span>':''}${cot._cloud?'<span class="badge-nube">☁️ Nube</span>':''}</span>
         <span class="hist-card-date">🕓 ${cot.savedAt}</span>
       </div>
       <div class="hist-card-client">👤 ${cot.cliente||'Sin nombre'}</div>
@@ -744,7 +750,7 @@ function renderHistorial(){
       <div class="hist-card-actions">
         <button class="btn-hist-load" onclick="cargarCotizacion(window._hist[${idx}])">📂 Cargar en formulario</button>
         <button class="btn-hist-agenda" onclick="agendarDesdeCot(window._hist[${idx}])">📅 Agendar</button>
-        <button class="btn-hist-del" onclick="eliminarCot(${cot.id})">🗑 Eliminar</button>
+        ${cot._cloud?'':`<button class="btn-hist-del" onclick="eliminarCot(${cot.id})">🗑 Eliminar</button>`}
       </div>
     </div>
   `).join('');
@@ -764,7 +770,12 @@ const histBtn=document.getElementById('histBtn');
 const histModal=document.getElementById('histModal');
 const histClose=document.getElementById('histClose');
 
-histBtn.onclick=()=>{ renderHistorial(); histModal.classList.add('open'); };
+histBtn.onclick=async()=>{
+  renderHistorial();           // muestra al instante lo local
+  histModal.classList.add('open');
+  await syncListar();          // refresca desde la hoja
+  renderHistorial();           // re-pinta ya fusionado
+};
 histClose.onclick=()=>histModal.classList.remove('open');
 histModal.onclick=e=>{ if(e.target===histModal) histModal.classList.remove('open'); };
 
@@ -1040,6 +1051,7 @@ async function syncNextOrden(){
 }
 
 // Traer historial desde la hoja y fusionarlo con el local
+let CLOUD_HIST = [];
 async function syncListar(){
   if(!SYNC_ON) return;
   try{
@@ -1054,8 +1066,41 @@ async function syncListar(){
         }
       });
       localStorage.setItem('ricchary_agendados', JSON.stringify(ag));
+      // Cachear historial de la nube para el modal
+      CLOUD_HIST = j.data.map(row=>({
+        id: 'cloud-'+row.orden,
+        num: String(row.orden),
+        savedAt: row.guardado || '',
+        fecha: row.fecha ? String(row.fecha).slice(0,10) : '',
+        cliente: row.cliente || '',
+        empresa: row.empresa || '',
+        telefono: row.telefono || '',
+        total: row.total || '',
+        items: parseItemsNube(row.items),
+        _cloud: true
+      }));
     }
   }catch(e){ /* sin conexión, usa local */ }
+}
+
+// Convierte el texto "2x gorra $30.00 | 1x envio $5.00" en items
+function parseItemsNube(txt){
+  if(!txt) return [];
+  return String(txt).split(' | ').map(s=>{
+    s = s.trim();
+    const xi = s.indexOf('x ');
+    const di = s.lastIndexOf(' $');
+    if(xi < 0) return { qty:'', desc:s, price:'', sub:'' };
+    const qty = s.slice(0, xi).trim();
+    const desc = (di > xi) ? s.slice(xi+2, di).trim() : s.slice(xi+2).trim();
+    const sub = (di > xi) ? s.slice(di+1).trim() : '';
+    // precio unitario estimado = subtotal / cantidad
+    let price = '';
+    const q = parseFloat(qty.replace(',','.'));
+    const st = parseFloat(sub.replace(/[^0-9.,]/g,'').replace(/\./g,'').replace(',','.')) || parseFloat(sub.replace(/[^0-9.]/g,''));
+    if(q && st) price = (st/q).toFixed(2);
+    return { qty:qty, desc:desc, price:price, sub:sub };
+  }).filter(it=>it.desc);
 }
 
 // ===== NUMERACIÓN AUTOMÁTICA DE ORDEN (RICCHARY) =====
