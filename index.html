@@ -659,6 +659,7 @@ function guardarCotizacion(){
   if(hist.length>10) hist=hist.slice(0,10);
   saveHistory(hist);
   showHistSaveBadge();
+  syncGuardar(cot);
 
   // Fijar número de orden usado y preparar el siguiente
   const nActual = parseInt(document.getElementById('docOrden')?.getAttribute('data-num')||getNextOrden(),10);
@@ -935,6 +936,7 @@ agendaConfirmBtn.onclick=async()=>{
 
   // Marcar esta orden como agendada
   marcarAgendado(ordenActual(), new Date().toLocaleString('es-EC'));
+  syncAgendar(ordenActual());
   agendaStatus.className='agenda-status ok';
   agendaStatus.innerHTML='✅ Se abrió Google Calendar en una nueva pestaña. <b>Orden N° '+ordenActual()+' marcada como agendada.</b>'
     +'<br><small>Agrega los recordatorios (2 días y 2 horas antes) y guarda el evento.</small>';
@@ -956,6 +958,94 @@ document.getElementById('clearBtn').onclick=()=>{
   document.querySelectorAll('.img-slot').forEach(s=>s.remove());
 };
 
+// ===== SINCRONIZACIÓN GOOGLE SHEETS (RICCHARY) =====
+const SYNC_URL = "https://script.google.com/macros/s/AKfycbwaE92HwILHtCz1_feWtU3466jNS-Oy-jVEHyoOkepwIVijln2s--q3F3TjeWOWKbqs/exec";
+let SYNC_ON = true; // se apaga solo si no hay internet
+
+// Indicador visual de estado de sincronización
+function syncStatus(txt, color){
+  let el = document.getElementById('syncBadge');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'syncBadge';
+    el.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:9999;font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:opacity .4s;opacity:0';
+    document.body.appendChild(el);
+  }
+  el.textContent = txt;
+  el.style.background = color || '#1565C0';
+  el.style.color = '#fff';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2500);
+}
+
+// Guardar/actualizar una cotización en la hoja
+async function syncGuardar(cot){
+  if(!SYNC_ON) return;
+  try{
+    syncStatus('⏳ Guardando en la nube...', '#1565C0');
+    const itemsTxt = (cot.items||[]).map(it=>`${it.qty}x ${it.desc} ${it.sub}`).join(' | ');
+    await fetch(SYNC_URL, {
+      method:'POST',
+      body: JSON.stringify({
+        accion:'guardar',
+        orden: cot.num || ordenActual(),
+        fecha: cot.fecha || '',
+        cliente: cot.cliente || '',
+        empresa: document.getElementById('fEmpresa')?.value || '',
+        telefono: cot.telefono || '',
+        total: cot.total || '',
+        items: itemsTxt
+      })
+    });
+    syncStatus('☁️ Guardado en la nube', '#22c55e');
+  }catch(e){
+    SYNC_ON = false;
+    syncStatus('📴 Sin conexión (guardado local)', '#f59e0b');
+  }
+}
+
+// Marcar agendado en la hoja
+async function syncAgendar(orden){
+  if(!SYNC_ON) return;
+  try{
+    await fetch(SYNC_URL, { method:'POST', body: JSON.stringify({ accion:'agendar', orden:orden }) });
+    syncStatus('☁️ Agendado sincronizado', '#22c55e');
+  }catch(e){ /* silencioso */ }
+}
+
+// Pedir el siguiente número de orden a la hoja (numeración centralizada)
+async function syncNextOrden(){
+  if(!SYNC_ON) return null;
+  try{
+    const r = await fetch(SYNC_URL + '?accion=nextOrden');
+    const j = await r.json();
+    return j.next || null;
+  }catch(e){
+    SYNC_ON = false;
+    return null;
+  }
+}
+
+// Traer historial desde la hoja y fusionarlo con el local
+async function syncListar(){
+  if(!SYNC_ON) return;
+  try{
+    const r = await fetch(SYNC_URL + '?accion=list');
+    const j = await r.json();
+    if(j.ok && Array.isArray(j.data)){
+      // Guardar marca de agendados de la nube
+      const ag = {};
+      j.data.forEach(row=>{
+        if(row.agendado && String(row.agendado).indexOf('SI')===0){
+          ag[String(row.orden)] = { fecha: String(row.agendado).replace('SI - ','') };
+        }
+      });
+      localStorage.setItem('ricchary_agendados', JSON.stringify(ag));
+    }
+  }catch(e){ /* sin conexión, usa local */ }
+}
+
 // ===== NUMERACIÓN AUTOMÁTICA DE ORDEN (RICCHARY) =====
 function getNextOrden(){
   // Lee el último número usado; arranca en 1001
@@ -972,7 +1062,15 @@ function confirmarOrden(n){
   localStorage.setItem('ricchary_last_orden', String(n));
 }
 // Al cargar la app, mostrar el próximo número disponible
-window.addEventListener('load', ()=>{ setOrdenActual(getNextOrden()); });
+window.addEventListener('load', async ()=>{
+  // Primero pinta el número local para no dejar el campo vacío
+  setOrdenActual(getNextOrden());
+  // Luego intenta numeración centralizada desde la hoja
+  const remoto = await syncNextOrden();
+  if(remoto){ setOrdenActual(remoto); }
+  // Trae marcas de agendado desde la nube y refresca historial si está abierto
+  await syncListar();
+});
 
 </script>
 <script>
