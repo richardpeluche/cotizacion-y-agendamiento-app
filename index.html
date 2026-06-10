@@ -987,6 +987,8 @@ async function syncGuardar(cot){
     const itemsTxt = (cot.items||[]).map(it=>`${it.qty}x ${it.desc} ${it.sub}`).join(' | ');
     await fetch(SYNC_URL, {
       method:'POST',
+      mode:'no-cors',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify({
         accion:'guardar',
         orden: cot.num || ordenActual(),
@@ -1009,7 +1011,7 @@ async function syncGuardar(cot){
 async function syncAgendar(orden){
   if(!SYNC_ON) return;
   try{
-    await fetch(SYNC_URL, { method:'POST', body: JSON.stringify({ accion:'agendar', orden:orden }) });
+    await fetch(SYNC_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion:'agendar', orden:orden }) });
     syncStatus('☁️ Agendado sincronizado', '#22c55e');
   }catch(e){ /* silencioso */ }
 }
