@@ -1,6 +1,17 @@
-
-<!-- saved from url=(0058)file:///C:/Users/richa/Downloads/proforma_ricchary_v2.html -->
-<html style="--brand: #4A148C; --brand-dark: #38006b; --brand-light: #F3E5F5; --brand-mid: #4A148C;"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><style>
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Proformas RICCHARY</title>
+<meta name="description" content="Sistema de cotizaciones y proformas - RICCHARY Publicidad Textil & Diseño Empresarial">
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="RICCHARY">
+<style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --brand:#1565C0;--brand-dark:#0D47A1;--brand-light:#E3F2FD;--brand-mid:#1976D2;
@@ -878,5 +889,14 @@ document.getElementById('clearBtn').onclick=()=>{
   clearSig(1);clearSig(2);
   document.querySelectorAll('.img-slot').forEach(s=>s.remove());
 };
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg=>console.log('SW registrado:',reg.scope))
+      .catch(err=>console.log('SW error:',err));
+  });
+}
 </script>
 </body></html>
