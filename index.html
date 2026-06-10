@@ -938,8 +938,8 @@ agendaConfirmBtn.onclick=async()=>{
   marcarAgendado(ordenActual(), new Date().toLocaleString('es-EC'));
   syncAgendar(ordenActual());
   agendaStatus.className='agenda-status ok';
-  agendaStatus.innerHTML='✅ Se abrió Google Calendar en una nueva pestaña. <b>Orden N° '+ordenActual()+' marcada como agendada.</b>'
-    +'<br><small>Agrega los recordatorios (2 días y 2 horas antes) y guarda el evento.</small>';
+  agendaStatus.innerHTML='✅ Se abrió Google Calendar. <b>Orden N° '+ordenActual()+' marcada como agendada.</b>'
+    +'<br><small>Los recordatorios (2 días y 2 horas antes) se aplican automáticamente si configuraste las notificaciones predeterminadas de tu calendario. Solo guarda el evento.</small>';
   agendaConfirmBtn.disabled=false;
 };
 
@@ -957,6 +957,16 @@ document.getElementById('clearBtn').onclick=()=>{
   clearSig(1);clearSig(2);
   document.querySelectorAll('.img-slot').forEach(s=>s.remove());
 };
+
+// ===== REINICIO LIMPIO v101 (se ejecuta una sola vez por dispositivo) =====
+(function(){
+  if(!localStorage.getItem('ricchary_reset_v101')){
+    localStorage.removeItem('cot_history');
+    localStorage.removeItem('ricchary_agendados');
+    localStorage.removeItem('ricchary_last_orden');
+    localStorage.setItem('ricchary_reset_v101','1');
+  }
+})();
 
 // ===== SINCRONIZACIÓN GOOGLE SHEETS (RICCHARY) =====
 const SYNC_URL = "https://script.google.com/macros/s/AKfycbwaE92HwILHtCz1_feWtU3466jNS-Oy-jVEHyoOkepwIVijln2s--q3F3TjeWOWKbqs/exec";
@@ -1051,12 +1061,12 @@ async function syncListar(){
 // ===== NUMERACIÓN AUTOMÁTICA DE ORDEN (RICCHARY) =====
 function getNextOrden(){
   // Lee el último número usado; arranca en 1001
-  let last = parseInt(localStorage.getItem('ricchary_last_orden')||'1000', 10);
+  let last = parseInt(localStorage.getItem('ricchary_last_orden')||'100', 10);
   return last + 1;
 }
 function setOrdenActual(n){
   const el = document.getElementById('docOrden');
-  if(el) el.value = String(n).padStart(4,'0');
+  if(el) el.value = String(n);
   document.getElementById('docOrden')?.setAttribute('data-num', n);
 }
 function confirmarOrden(n){
