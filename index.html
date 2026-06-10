@@ -189,6 +189,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .btn-hist-load{background:var(--brand);color:#fff;border-color:var(--brand)}
 .btn-hist-agenda{background:#22c55e;color:#fff;border-color:#22c55e}
 .btn-hist-del{background:#fff;color:var(--danger);border-color:var(--danger)}
+.badge-agendado{display:inline-block;background:#22c55e;color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle}
 .hist-save-badge{position:absolute;top:-8px;right:-8px;background:var(--brand);color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:2px 8px;display:none}
 
 /* ===== RESPONSIVE MÓVIL (RICCHARY) ===== */
@@ -587,6 +588,26 @@ function getHistory(){
   }
   catch(e){ return []; }
 }
+// ===== CONTROL DE PEDIDOS AGENDADOS (RICCHARY) =====
+function getAgendados(){
+  try{ return JSON.parse(localStorage.getItem('ricchary_agendados')||'{}'); }
+  catch(e){ return {}; }
+}
+function marcarAgendado(orden, info){
+  if(!orden) return;
+  const a = getAgendados();
+  a[orden] = { fecha: info||new Date().toLocaleString('es-EC') };
+  localStorage.setItem('ricchary_agendados', JSON.stringify(a));
+}
+function yaAgendado(orden){
+  if(!orden) return null;
+  const a = getAgendados();
+  return a[orden] || null;
+}
+function ordenActual(){
+  return document.getElementById('docOrden')?.value || '';
+}
+
 function saveHistory(arr){
   localStorage.setItem('cot_history', JSON.stringify(arr));
 }
@@ -713,7 +734,7 @@ function renderHistorial(){
   container.innerHTML=hist.map((cot,idx)=>`
     <div class="hist-card">
       <div class="hist-card-header">
-        <span class="hist-card-num">Proforma #${cot.num||'—'}</span>
+        <span class="hist-card-num">Proforma #${cot.num||'—'} ${yaAgendado(cot.num)?'<span class="badge-agendado">✅ Agendado</span>':''}</span>
         <span class="hist-card-date">🕓 ${cot.savedAt}</span>
       </div>
       <div class="hist-card-client">👤 ${cot.cliente||'Sin nombre'}</div>
@@ -819,6 +840,13 @@ const agendaConfirmBtn=document.getElementById('agendaConfirmBtn');
 const agendaStatus=document.getElementById('agendaStatus');
 
 agendaBtn.onclick=()=>{
+  // Avisar si esta orden ya fue agendada antes
+  const _ord = ordenActual();
+  const _prev = yaAgendado(_ord);
+  if(_prev){
+    const seguir = confirm('⚠️ La Orden N° '+_ord+' YA fue agendada el '+_prev.fecha+'.\n\n¿Deseas agendarla nuevamente de todas formas?');
+    if(!seguir) return;
+  }
   // Recoger datos del formulario
   const cliente=document.getElementById('fCliente').value||'Sin nombre';
   const totalTxt=document.getElementById('totalVal').textContent||'$0,00';
@@ -905,8 +933,10 @@ agendaConfirmBtn.onclick=async()=>{
 
   window.open(gcUrl,'_blank');
 
+  // Marcar esta orden como agendada
+  marcarAgendado(ordenActual(), new Date().toLocaleString('es-EC'));
   agendaStatus.className='agenda-status ok';
-  agendaStatus.innerHTML='✅ Se abrió Google Calendar en una nueva pestaña.'
+  agendaStatus.innerHTML='✅ Se abrió Google Calendar en una nueva pestaña. <b>Orden N° '+ordenActual()+' marcada como agendada.</b>'
     +'<br><small>Agrega los recordatorios (2 días y 2 horas antes) y guarda el evento.</small>';
   agendaConfirmBtn.disabled=false;
 };
