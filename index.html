@@ -351,7 +351,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <div class="card">
   <div class="section-title">Observaciones y Condiciones</div>
   <div class="footer-notes">
-    <textarea id="fNotas" style="height: 103px;">Entrega 30 días laborables. Abono 50% al confirmar el pedido.
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">🚚 Tiempo de entrega: <input id="fDiasEntrega" type="number" min="1" max="365" value="30" style="width:55px;text-align:center;font-weight:700;padding:2px 4px;border:0.5px solid var(--border);border-radius:4px"> días laborables</div>
+    <textarea id="fNotas" style="height: 103px;">Abono 50% al confirmar el pedido. El plazo de entrega corre a partir de la confirmación del pedido y aprobación del diseño.
 En caso de depósito o transferencia a la Cta. Ahorros 4720698400 Banco Pichincha a nombre de Ricardo Morales cédula 171631236-6.
 Este documento es de carácter contrato cliente-ofertador, que firmado constituye un documento de COMPROMISO.</textarea>
   </div>
@@ -612,6 +613,30 @@ function getHistory(){
   }
   catch(e){ return []; }
 }
+// ===== CONDICIONES Y DÍAS DE ENTREGA PERSISTENTES =====
+function sumarDiasLaborables(base, n){
+  let d = new Date(base); let sumados = 0;
+  while(sumados < n){
+    d.setDate(d.getDate()+1);
+    const wd = d.getDay();
+    if(wd!==0 && wd!==6) sumados++;
+  }
+  return d;
+}
+function diasEntrega(){
+  return parseInt(document.getElementById('fDiasEntrega')?.value,10) || 30;
+}
+window.addEventListener('load', ()=>{
+  const n = document.getElementById('fNotas');
+  const dd = document.getElementById('fDiasEntrega');
+  const savedN = localStorage.getItem('cfg_condiciones');
+  const savedD = localStorage.getItem('cfg_dias_entrega');
+  if(n && savedN) n.value = savedN;
+  if(dd && savedD) dd.value = savedD;
+  if(n) n.addEventListener('input', ()=>localStorage.setItem('cfg_condiciones', n.value));
+  if(dd) dd.addEventListener('input', ()=>localStorage.setItem('cfg_dias_entrega', dd.value));
+});
+
 // ===== ESTADOS DEL PEDIDO (RICCHARY) =====
 const ESTADOS = ['Cotizado','Confirmado','En producción','Listo','Entregado'];
 const ESTADO_COLOR = {'Cotizado':'#64748b','Confirmado':'#1565C0','En producción':'#f59e0b','Listo':'#8b5cf6','Entregado':'#22c55e'};
@@ -742,6 +767,13 @@ function cargarCotizacion(cot){
 
 // Agendar directamente desde historial sin cargar el formulario
 function agendarDesdeCot(cot){
+  // Aviso si ya fue agendado (mismo control que el botón principal)
+  const _prev = yaAgendado(cot.num);
+  if(_prev){
+    const fechaPrevia = _prev.entrega ? new Date(_prev.entrega).toLocaleDateString('es-EC',{weekday:'long',day:'numeric',month:'long'}) : _prev.fecha;
+    const seguir = confirm('⚠️ La Orden N° '+cot.num+' YA fue agendada (entrega: '+fechaPrevia+').\n\n¿Deseas REAGENDARLA? Esto puede duplicar el evento en tu calendario; elimina el anterior si corresponde.');
+    if(!seguir) return;
+  }
   const cliente = cot.cliente||'Cliente';
   const totalTxt = cot.total||'$0,00';
   const notas = cot.notas||'';
@@ -754,9 +786,9 @@ function agendarDesdeCot(cot){
   const totalNum=parseFloat(totalTxt.replace(/[^0-9.,]/g,'').replace(',','.'));
   const desc=`📦 PEDIDO:\n${itemsList}\n👤 CLIENTE: ${cliente}\n💰 TOTAL: ${totalTxt}\n📋 OBS: ${notas}\n📱 Proforma RICCHARY #${cot.num}`;
 
-  // Calcular fecha: usar la fecha de la cotización + 30 días como entrega sugerida
-  const baseDate = cot.fecha ? new Date(cot.fecha) : new Date();
-  baseDate.setDate(baseDate.getDate()+30);
+  // Calcular fecha: hoy + días laborables configurados como entrega sugerida
+  const baseDate = sumarDiasLaborables(new Date(), diasEntrega());
+  baseDate.setHours(15,0,0,0);
   const fechaISO = baseDate.toISOString().slice(0,10);
   const fechaEnd = new Date(baseDate.getTime()+48*60*60000).toISOString();
 
@@ -771,6 +803,11 @@ function agendarDesdeCot(cot){
     +'&sf=true&output=xml';
 
   window.open(gcUrl,'_blank');
+  // Registrar agendado + entrega y sincronizar (antes este camino no registraba)
+  const entregaISO = baseDate.toISOString().slice(0,16);
+  marcarAgendado(cot.num, new Date().toLocaleString('es-EC'), entregaISO);
+  syncAgendar(cot.num, entregaISO);
+  cambiarEstado(cot.num, 'Confirmado');
   document.getElementById('histModal').classList.remove('open');
 }
 
@@ -802,7 +839,7 @@ function renderHistorial(){
       <div class="hist-card-items">${(cot.items||[]).slice(0,3).map(it=>`• ${it.qty} × ${it.desc}`).join('<br>')+(cot.items.length>3?`<br><small>+${cot.items.length-3} ítems más...</small>`:'')}</div>
       <div class="hist-card-actions">
         <button class="btn-hist-load" onclick="cargarCotizacion(window._hist[${idx}])">📂 Cargar en formulario</button>
-        <button class="btn-hist-agenda" onclick="agendarDesdeCot(window._hist[${idx}])">📅 Agendar</button>
+        <button class="btn-hist-agenda" onclick="agendarDesdeCot(window._hist[${idx}])">${yaAgendado(cot.num)?'🔁 Reagendar':'📅 Agendar'}</button>
         ${cot._cloud?'':`<button class="btn-hist-del" onclick="eliminarCot(${cot.id})">🗑 Eliminar</button>`}
       </div>
     </div>
@@ -929,6 +966,14 @@ agendaBtn.onclick=()=>{
     const seguir = confirm('⚠️ La Orden N° '+_ord+' YA fue agendada el '+_prev.fecha+'.\n\n¿Deseas agendarla nuevamente de todas formas?');
     if(!seguir) return;
   }
+  // Sugerir fecha de entrega: hoy + días laborables configurados
+  const _fEnt = document.getElementById('agendaFecha');
+  if(_fEnt && !_fEnt.value){
+    const _d = sumarDiasLaborables(new Date(), diasEntrega());
+    _d.setHours(15,0,0,0);
+    const _p = x=>String(x).padStart(2,'0');
+    _fEnt.value = `${_d.getFullYear()}-${_p(_d.getMonth()+1)}-${_p(_d.getDate())}T${_p(_d.getHours())}:${_p(_d.getMinutes())}`;
+  }
   // Recoger datos del formulario
   const cliente=document.getElementById('fCliente').value||'Sin nombre';
   const totalTxt=document.getElementById('totalVal').textContent||'$0,00';
@@ -1049,7 +1094,8 @@ document.getElementById('waBtn').onclick=()=>{
     }
   }
 
-  const msg = `*RICCHARY — Publicidad Textil & Diseño Empresarial*\n`
+  const brandName = (localStorage.getItem('cfg_empresa')||'').trim() || 'RICCHARY — Publicidad Textil & Diseño Empresarial';
+  const msg = `*${brandName}*\n`
     + `📋 *Proforma N° ${cot.num}*\n`
     + `${'─'.repeat(22)}\n`
     + `👤 Cliente: ${cot.cliente}${empresa?`\n🏢 Empresa: ${empresa}`:''}\n`
@@ -1076,7 +1122,7 @@ document.getElementById('printBtn').onclick=()=>{ guardarCotizacion(); window.pr
 document.getElementById('clearBtn').onclick=()=>{
   if(!confirm('¿Limpiar todos los datos del formulario?'))return;
   document.getElementById('itemsBody').innerHTML='';
-  ['fEmpresa','fCliente','fMail','fTelefono','fDireccion','fCedula','fAtencion','fNotas'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  ['fEmpresa','fCliente','fMail','fTelefono','fDireccion','fCedula','fAtencion'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   setOrdenActual(getNextOrden());
   const _fA2=document.getElementById('fAbono'); if(_fA2) _fA2.value='';
   estadoActual='Cotizado'; calcSaldo();
