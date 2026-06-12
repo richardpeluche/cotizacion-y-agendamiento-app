@@ -434,6 +434,12 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
       <input type="text" id="cfgRepresentante" placeholder="Ej: Ricardo Morales — CEO">
     </div>
 
+    <div class="cfg-group">
+      <label>☁️ URL de sincronización (Google Apps Script)</label>
+      <input type="text" id="cfgSyncUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <small style="display:block;color:var(--muted);font-size:11px;margin-top:3px">Opcional. Conecta tu propia hoja de Google Sheets para respaldo en la nube y sincronización entre dispositivos. Vacío = la app funciona solo en este dispositivo.</small>
+    </div>
+
     <button class="cfg-save" id="cfgSave">💾 Guardar configuración</button>
     <div id="cfgMsg" style="margin-top:8px;font-size:12px;color:#16a34a;text-align:center;display:none">✅ Guardado correctamente</div>
   </div>
@@ -895,6 +901,8 @@ function loadConfig(){
   const e=localStorage.getItem('cfg_empresa')||'';
   const l=localStorage.getItem('cfg_logo')||'';
   const rep=localStorage.getItem('cfg_representante')||'';
+  const su=localStorage.getItem('cfg_sync_url')||'';
+  if(su)document.getElementById('cfgSyncUrl').value=su;
   if(g)document.getElementById('cfgGmail').value=g;
   if(e)document.getElementById('cfgEmpresa').value=e;
   if(rep)document.getElementById('cfgRepresentante').value=rep;
@@ -940,6 +948,16 @@ cfgSave.onclick=()=>{
   localStorage.setItem('cfg_gmail',g);
   localStorage.setItem('cfg_empresa',e);
   localStorage.setItem('cfg_representante',rep);
+  const su=document.getElementById('cfgSyncUrl').value.trim();
+  localStorage.setItem('cfg_sync_url',su);
+  SYNC_URL=su; SYNC_ON=!!su;
+  if(SYNC_ON){
+    syncStatus('☁️ Sincronización activada', '#22c55e');
+    syncNextOrden().then(n=>{ if(n) setOrdenActual(n); });
+    syncListar();
+  } else {
+    syncStatus('📴 Modo local (sin nube)', '#64748b');
+  }
   aplicarFirmas(e, rep);
   if(e){
     const sp=document.querySelector('#bannerPlaceholder span');
@@ -1143,8 +1161,8 @@ document.getElementById('clearBtn').onclick=()=>{
 })();
 
 // ===== SINCRONIZACIÓN GOOGLE SHEETS (RICCHARY) =====
-const SYNC_URL = "https://script.google.com/macros/s/AKfycbwaE92HwILHtCz1_feWtU3466jNS-Oy-jVEHyoOkepwIVijln2s--q3F3TjeWOWKbqs/exec";
-let SYNC_ON = true; // se apaga solo si no hay internet
+let SYNC_URL = (localStorage.getItem('cfg_sync_url')||'').trim();
+let SYNC_ON = !!SYNC_URL; // sin URL configurada = modo local (sin nube)
 
 // Indicador visual de estado de sincronización
 function syncStatus(txt, color){
