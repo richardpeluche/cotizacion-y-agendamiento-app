@@ -941,6 +941,12 @@ cfgSave.onclick=()=>{
   localStorage.setItem('cfg_gmail',g);
   localStorage.setItem('cfg_empresa',e);
   localStorage.setItem('cfg_representante',rep);
+  const lk2=document.getElementById('cfgLink')?.value.trim()||'';
+  localStorage.setItem('cfg_link',lk2);
+  const su=document.getElementById('cfgSyncUrl')?.value.trim()||'';
+  localStorage.setItem('cfg_sync_url',su);
+  if(su){ SYNC_URL=su; SYNC_ON=true; syncStatus('☁️ Sincronización activada','#22c55e'); syncNextOrden().then(n=>{if(n)setOrdenActual(n);}); syncListar(); }
+  else{ SYNC_ON=false; syncStatus('📴 Modo local (sin nube)','#64748b'); }
   aplicarFirmas(e, rep);
   if(e){
     const sp=document.querySelector('#bannerPlaceholder span');
