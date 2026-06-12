@@ -817,7 +817,8 @@ function renderHistorial(){
   // Fusionar: locales primero; de la nube solo las que no estén en local (por nº de orden)
   const nums = new Set(local.map(c=>String(c.num)));
   const nube = CLOUD_HIST.filter(c=>!nums.has(String(c.num)));
-  const hist = local.concat(nube);
+  // Ordenar todo por número de orden descendente (más reciente primero)
+  const hist = local.concat(nube).sort((a,b)=>parseInt(b.num,10)-parseInt(a.num,10));
   const container=document.getElementById('histList');
   if(hist.length===0){
     container.innerHTML='<div class="hist-empty">📭 Aún no hay cotizaciones guardadas.<br><small>Haz clic en <b>💾 Guardar</b> para registrar la cotización actual.</small></div>';
@@ -1143,8 +1144,8 @@ document.getElementById('clearBtn').onclick=()=>{
 })();
 
 // ===== SINCRONIZACIÓN GOOGLE SHEETS (RICCHARY) =====
-const SYNC_URL = "https://script.google.com/macros/s/AKfycbwaE92HwILHtCz1_feWtU3466jNS-Oy-jVEHyoOkepwIVijln2s--q3F3TjeWOWKbqs/exec";
-let SYNC_ON = true; // se apaga solo si no hay internet
+let SYNC_URL = (localStorage.getItem('cfg_sync_url')||'https://script.google.com/macros/s/AKfycbwaE92HwILHtCz1_feWtU3466jNS-Oy-jVEHyoOkepwIVijln2s--q3F3TjeWOWKbqs/exec').trim();
+let SYNC_ON = !!SYNC_URL;
 
 // Indicador visual de estado de sincronización
 function syncStatus(txt, color){
@@ -1184,7 +1185,11 @@ async function syncGuardar(cot){
         items: itemsTxt,
         estado: cot.estado || 'Cotizado',
         abono: cot.abono || '',
-        saldo: cot.saldo || ''
+        saldo: cot.saldo || '',
+        cedula: cot.cedula || '',
+        direccion: cot.direccion || '',
+        mail: cot.mail || '',
+        atencion: cot.atencion || ''
       })
     });
     syncStatus('☁️ Guardado en la nube', '#22c55e');
